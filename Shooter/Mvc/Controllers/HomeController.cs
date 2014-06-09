@@ -23,10 +23,12 @@ namespace Mvc.Controllers
                 {
                     FileName = @"E:\Shooter Work\shooter\Shooter\ShootIt\bin\Debug\ShootIt.exe",
                     Arguments =
-                        @"C:\Users\Shubh\Desktop\html\Rateboard" + i + @"\index.html" +
-                        @" C:\Users\Shubh\Desktop\html\ScreenShots\" + Guid.NewGuid() + ".png"
+                        @"Url=C:\Users\Shubh\Desktop\html\Rateboard" + i + @"\index.html" +
+                        @" ImagePath=C:\Users\Shubh\Desktop\html\ScreenShots\" + Guid.NewGuid() + ".png" +
+                        " JsDelay=2000"
                 };
-                Process.Start(startInfo);
+                var process = Process.Start(startInfo);
+                if (process != null) process.WaitForExit();
             }
             return View();
         }

@@ -33,6 +33,5 @@ E:\Shooter Work\shooter\Shooter\Shooter\bin\Debug\System.IO.xml
 E:\Shooter Work\shooter\Shooter\Shooter\bin\Debug\System.Runtime.xml
 E:\Shooter Work\shooter\Shooter\Shooter\bin\Debug\System.Threading.Tasks.xml
 E:\Shooter Work\shooter\Shooter\Shooter\obj\Debug\Shooter.csproj.App.config
-E:\Shooter Work\shooter\Shooter\Shooter\obj\Debug\Shooter.csprojResolveAssemblyReference.cache
 E:\Shooter Work\shooter\Shooter\Shooter\obj\Debug\Shooter.dll
 E:\Shooter Work\shooter\Shooter\Shooter\obj\Debug\Shooter.pdb
