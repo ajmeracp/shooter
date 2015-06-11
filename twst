@@ -1,0 +1,206 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Accord.Math;
+using Accord.Statistics;
+
+namespace QualityInspectionSys.Core.Mathematics {
+    public class PLSEngine {
+        public PLSEngine() {
+        }
+
+        public PLSResult Compute(double[,] X, double[,] Y, double tol2, double[,] A, double[,] StdX, double[,] StdY, double[,] C) {
+            PLSResult result = new PLSResult();
+
+            // Allow a user to selcted the tolerance_1 for convergence by default (1 x 10 to the power -6.
+            double tol = 1e-10;
+
+            // Size of x and y
+            var rX = X.GetLength(0);
+            var cX = X.GetLength(1);
+
+            var rY = Y.GetLength(0);
+            var cY = Y.GetLength(1);
+
+            // Initlize the matrix and variables to be used to hold the data.
+            var n = Math.Max(cX, cY);
+            var T = new double[rX, n];
+            var P = new double[cX, n];
+            var U = new double[rY, n];
+            var Q = new double[cY, n];
+            var B = new double[n, n];
+            var W = new double[cX, n];
+            var k = 0;
+            var J = 0;
+
+            double[,] R1X_Matrix = null;
+
+            //while norm(Y)>tol2 && k<n 
+            while (Norm.Norm2(Y) > tol2 && k<n) {
+                // find the column which has the X maximum norm (modulus)t   
+                var Tx = X.ElementwiseMultiply(X);
+                var Tx1 = Matrix.Sum(Tx);
+                var Tx2 = Tx1.Max();
+
+                int tidx = Array.IndexOf(Tx1, Tx2);
+
+                //% find the column which has the Y maximum norm (modulus)u
+                var Utemp = Y.ElementwiseMultiply(Y);
+                var Tu1 = Matrix.Sum(Utemp);
+                var Tu2 = Tu1.Max();
+
+                int uidx = Array.IndexOf(Tu1, Tu2);
+
+                var t1 = X.GetColumn(tidx).ToMatrix().Transpose();
+                var u = Y.GetColumn(uidx).ToMatrix().Transpose();
+                var t = new double[rX, 1];
+
+                // below two lines are non matlab code.
+                double[,] w = new double[0, 0];
+                double[,] q = new double[0, 0];
+
+                // %iteration until modulus(t1-t) is greater then tolerence (that was
+                // slected by the user.
+                while (Norm.Norm2(Matrix.Subtract(t1, t)) > tol) {
+                    // multply the transpose of X with u
+                    w = X.Transpose().Multiply(u);
+                    // divide the w with modules of w itself.
+                    w = w.Divide(Norm.Norm2(w));
+                    // assign the value of t1 in t
+                    t = t1;
+                    // multply the  X with w
+                    t1 = X.Multiply(w);
+                    // multply the transpose of Y with t1
+                    q = Y.Transpose().Multiply(t1);
+                    // divide the q with modules of q itself.
+                    q = q.Divide(Norm.Norm2(q));
+                    // multply the Y with q
+                    u = Y.Multiply(q);
+                    // increment J by 1
+                    J = J + 1;
+                }
+
+                #region a little change
+
+                if (q.GetLength(0) == 0) {
+                    break;
+                }
+
+                #endregion
+
+                // assign the value of t1 to t
+                t = t1;
+                // multiply the X' with t and t' with t and divive them both
+                var p = X.Transpose().Multiply(t).Divide(t.Transpose().Multiply(t));
+                // get the p modulus.
+                var pnorm = Norm.Norm2(p);
+                // divide the p with modules of p itself.
+                p = p.Divide(pnorm);
+                // multiply t with modules of p.
+                t = t.Multiply(pnorm);
+                // multiply w with modules of p.
+                w = w.Multiply(pnorm);
+
+                var b = u.Transpose().Multiply(t).Divide(t.Transpose().Multiply(t));
+                X = X.Subtract(t.Multiply(p.Transpose()));
+                Y = Y.Subtract(t.Multiply(b).Multiply(q.Transpose()));
+
+                // X sample Q residual (X varience)
+                var e3 = X.Multiply(X.Transpose());
+                // Sample residual for each PC (X Varience for each PC)
+                e3 = e3.Diagonal().ToMatrix();
+
+                // ****************************************************** //
+                // Sample Residual
+                // X Sample Residuals
+                var R1X = X.Transpose().Variance();
+                if (k == 0) {
+                    R1X_Matrix = new double[n, R1X.GetLength(0)];
+                }
+
+                R1X_Matrix.SetColumn(k, R1X);
+
+                //X variable residual
+                var R2X = X.Variance();
+
+                // Y total residual
+                // y total Residuals
+                var R1Y = Y.Transpose().Variance();
+                // Y variable residual
+                var R2Y = Y.Variance();
+                // ****************************************************** //
+
+                //  Y Sample residual for each PC
+                var e4 = Y.Multiply(Y.Transpose());
+                e4 = e4.Diagonal().ToMatrix();
+
+                //Calculate the number of component required.
+                var F = Y;
+                var F1 = Norm.Norm2(F);
+                var F2 = F.Divide(F1);
+
+                // populate the T matrix with t values
+                T.SetColumn(k, t.GetColumn(0));
+
+                // populate the P matrix with p values
+                P.SetColumn(k, p.GetColumn(0));
+
+                // populate the U matrix with u values
+                U.InsertColumn(u.GetColumn(0), k);
+                U.SetColumn(k, u.GetColumn(0));
+
+                // populate the Q matrix with q values
+                Q.SetColumn(k, q.GetColumn(0));
+
+                // populate the W matrix with w values
+                W.SetColumn(k, w.GetColumn(0));
+
+                // populate the B matrix with b values
+                B[k, k] = b[0, 0];
+
+                //uncomment the following line if you wish to see the convergence 
+                //disp(norm(Y)) 
+
+                //increae k by 1
+                k = k + 1;
+            }
+
+            result.T = T.Submatrix(0, T.GetLength(0) - 1, 0, k - 1);
+            result.P = P.Submatrix(0, P.GetLength(0) - 1, 0, k - 1);
+            result.U = U.Submatrix(0, U.GetLength(0) - 1, 0, k - 1);
+            result.Q = Q.Submatrix(0, Q.GetLength(0) - 1, 0, k - 1);
+            result.W = W.Submatrix(0, W.GetLength(0) - 1, 0, k - 1);
+            result.B = B;
+
+            // Corelation loading X
+            CorelationLoading corelationLoading = new CorelationLoading();
+            var Cov_NipalsX = corelationLoading.Compute(result.T, A);
+            var Cov_NipalsY = corelationLoading.Compute(result.T, C);
+
+            // X Total Residual 
+            Residual residual = new Residual();
+            var sigmaX = residual.Compute(result.T);
+            var sigmaY = residual.Compute(Y);
+
+            Leverage leverage = new Leverage();
+            var leverageX = leverage.Compute(result.T);
+            var leverageY = leverage.Compute(result.U);
+
+            Hotteling hotteling = new Hotteling();
+            var XT0 = hotteling.Compute(result.T);
+
+            return result;
+        }
+    }
+
+    public class PLSResult {
+        public double[,] T { get; set; }
+        public double[,] P { get; set; }
+        public double[,] U { get; set; }
+        public double[,] Q { get; set; }
+        public double[,] W { get; set; }
+        public double[,] B { get; set; }
+    }
+}
