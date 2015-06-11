@@ -1,0 +1,115 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Accord.Math;
+
+namespace QualityInspectionSys.Core.Mathematics {
+    public class PcaNipals {
+        public PcaNipals() {
+        }
+
+        public PcaNipalsResult Compute(double[,] X, double tol2, double[,] A) {
+            PcaNipalsResult result = new PcaNipalsResult();
+            // Multiply the x0 transpose to x0.
+            var B = X.Transpose().Multiply(X);
+
+            // Initilize the matrix T (Score - n x P) and P (loading - P x P)
+            double[,] T = new double[A.GetLength(0),A.GetLength(1)];
+            double[,] P = new double[A.GetLength(1), A.GetLength(1)];
+
+            // Allow a user to selcted the tolerance_1 for convergence by default (1 x 10 to the power -6.
+            var tol1 = 1.0e-6;
+
+            // Allow a user to selcted the tolerance_2 for Principle component - by
+            // default 0.1 
+            tol2= 0.000225;
+            int k = 0;
+            // for loop (number of iteration is the number of pixel data (number of varible)
+            for (k = 0; k < A.GetLength(1); k++) {
+                // find the column which has the maximum norm (modulus)
+                var Tx = X.ElementwiseMultiply(X);
+                var Tx1 = Matrix.Sum(Tx);
+                var Tx2 = Tx1.Max();
+
+                int idx = Array.IndexOf(Tx1, Tx2);
+
+                // make a tempraray matrix to hold that perticular column which was recently selcted
+                var t= A.GetColumn(idx).ToMatrix().Transpose();
+
+                // t0 is temprory matrix to hold the data, it is initilized to zero (all elements inside t0 is set to zero)
+                var t0 = t.Subtract(t);
+
+                var p = new double[0, 0];
+                // iteration until modulus(t-t0) is greater then tolerence_1 (that was slected by the user).
+                while (Norm.Norm2(Matrix.Subtract(t, t0)) > tol1) {
+                    // Multiply x0 transpose to t
+                    p = X.Transpose().Multiply(t);
+
+                    //divide the p with modules of p itself.
+                    p = p.Divide(Norm.Norm2(p));
+
+                    // asigne the value of t into t0
+                    t0 = t;
+
+                    // multiply x0 with p
+                    t = X.Multiply(p);
+                }
+                // if program come out of the loop then multiply the t with transpose of p and substract it with x0
+                X=X.Subtract(t.Multiply(p.Transpose()));
+
+                // populate the T matrix with t values
+                T.SetColumn(k, t.GetColumn(0));
+    
+                // populate the P matrix with p values
+                P.SetColumn(k, p.GetColumn(0));
+
+                //condition check if the moduls of x0 is less then tolerance_2
+                if (Norm.Norm2(X) < tol2)
+                    break;
+            }
+
+            // populate the T matrix with t values
+            result.T = T.Submatrix(0, T.GetLength(0) - 1, 0, k);
+
+            // populate the P matrix with p values
+            result.P = P.Submatrix(0, P.GetLength(0) - 1, 0, k);
+
+            // Calculating the latent 
+            result.S = Matrix.Diagonal(result.T.Transpose().Multiply(result.T)).ToMatrix();
+
+            #region percentage calculation not needed.
+
+            //// get the sum of all the altent matrix
+            //var L_Sum = result.S.GetRow(0).Sum();
+
+            //// make a dummy matrix of %latent
+            //var L_Percentage = new double[(A.GetLength(0) + 1), 1];
+
+            //// for loop to calculate the latent in terms of %(percentage)
+            //for (int i = 0; i < A.GetLength(0); i++) {
+            //    if (i > 0) {
+            //        // add the two latent and store them in same column
+            //        result.S[i, 0] = result.S[(i - 1), 0] + result.S[i, 0];
+            //    }
+            //    L_Percentage[i + 1, 0] = 100 * (result.S[i, 0] / L_Sum);
+            //}
+
+            #endregion
+
+
+            // Calculate the Residual
+            result.E = X.Subtract(T.Multiply(P.Transpose()));
+
+            return result;
+        }
+    }
+
+    public class PcaNipalsResult {
+        public double[,] T { get; set; }
+        public double[,] P { get; set; }
+        public double[,] S { get; set; }
+        public double[,] E { get; set; }
+    }
+}
